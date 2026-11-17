@@ -1,1 +1,153 @@
-sddd
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Admin</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+  <style>
+    body { background: #f4f6f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    .table-responsive { background: white; border-radius: 10px; padding: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+    .badge-pending { background-color: #ffc107; color: #000; }
+    .badge-done { background-color: #198754; color: #fff; }
+  </style>
+</head>
+<body>
+  <div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h3><i class="bi bi-speedometer2"></i> Dashboard Follow Up Customer</h3>
+      <button class="btn btn-primary" onclick="loadData()"><i class="bi bi-arrow-clockwise"></i> Refresh Data</button>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-hover align-middle">
+        <thead class="table-dark">
+          <tr>
+            <th>Tanggal</th>
+            <th>Nama</th>
+            <th>No WA</th>
+            <th>Produk</th>
+            <th>Total</th>
+            <th>Status</th>
+            <th>Aksi (Follow Up)</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody">
+          <tr>
+            <td colspan="7" class="text-center py-4">
+              <div class="spinner-border text-primary" role="status"></div><br>
+              Memuat data...
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    // Format Rupiah
+    function formatRupiah(angka) {
+      return angka; // Dari sheet sudah berupa string Rp
+    }
+
+    // Format Nomor WA (Ubah 08 jadi 628)
+    function formatWA(nomor) {
+      let str = nomor.toString().replace(/\D/g, ''); // Hapus karakter non-angka
+      if (str.startsWith('0')) {
+        str = '62' + str.substring(1);
+      } else if (str.startsWith('8')) {
+        str = '62' + str;
+      }
+      return str;
+    }
+
+    // Muat Data dari Google Sheets
+    function loadData() {
+      document.getElementById('tableBody').innerHTML = `
+        <tr><td colspan="7" class="text-center py-4">
+          <div class="spinner-border text-primary" role="status"></div><br>Memuat data...
+        </td></tr>`;
+
+      google.script.run.withSuccessHandler(renderTable).getOrdersData();
+    }
+
+    // Tampilkan Data ke Tabel
+    function renderTable(orders) {
+      const tbody = document.getElementById('tableBody');
+      tbody.innerHTML = '';
+
+      if (orders.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Belum ada pesanan masuk.</td></tr>';
+        return;
+      }
+
+      orders.forEach(order => {
+        // Tentukan warna badge
+        let badgeClass = order.status === 'Belum di-Follow Up' ? 'badge-pending' : 'badge-done';
+        
+        // Siapkan teks WA Follow Up
+        const waNumber = formatWA(order.wa);
+        const waText = encodeURIComponent(`Halo Kak ${order.nama}, kami dari Admin toko. Kami melihat Kakak sudah mengisi form pemesanan untuk *${order.produk}* dengan total *${order.total}*, namun pesan belum masuk ke WhatsApp kami. Apakah ada kendala atau butuh bantuan? 🙏`);
+        const waLink = `https://wa.me/${waNumber}?text=${waText}`;
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><small>${order.tanggal}</small></td>
+          <td><strong>${order.nama}</strong></td>
+          <td>${order.wa}</td>
+          <td>${order.produk}</td>
+          <td>${order.total}</td>
+          <td><span class="badge ${badgeClass}">${order.status}</span></td>
+          <td>
+            <a href="${waLink}" target="_blank" class="btn btn-sm btn-success" onclick="tandaiFollowUp(${order.rowIndex}, this)">
+              <i class="bi bi-whatsapp"></i> Chat CS
+            </a>
+            ${order.status === 'Belum di-Follow Up' ? 
+              `<button class="btn btn-sm btn-outline-secondary" onclick="tandaiSelesai(${order.rowIndex}, this)">Tandai Selesai</button>` 
+              : ''}
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Aksi saat tombol WhatsApp diklik (Ubah status jadi "Sedang di-Follow Up")
+    function tandaiFollowUp(rowIndex, btnElement) {
+      // Cegah link terbuka dua kali
+      btnElement.setAttribute('href', '#');
+      
+      google.script.run.withSuccessHandler(() => {
+        // Ubah badge di UI tanpa reload
+        const tr = btnElement.closest('tr');
+        const badge = tr.querySelector('.badge');
+        if (badge.innerText === 'Belum di-Follow Up') {
+          badge.className = 'badge badge-done';
+          badge.innerText = 'Sedang di-Follow Up';
+        }
+        // Buka link WA secara manual setelah status terupdate
+        setTimeout(() => {
+            window.open(btnElement.getAttribute('data-wa-link'), '_blank');
+        }, 500);
+      }).updateStatus(rowIndex, 'Sedang di-Follow Up');
+    }
+
+    // Aksi saat tombol "Tandai Selesai" diklik
+    function tandaiSelesai(rowIndex, btnElement) {
+      if(!confirm("Tandai pesanan ini sebagai Selesai?")) return;
+      
+      google.script.run.withSuccessHandler(() => {
+        const tr = btnElement.closest('tr');
+        const badge = tr.querySelector('.badge');
+        badge.className = 'badge bg-primary';
+        badge.innerText = 'Selesai';
+        btnElement.remove(); // Hapus tombol tandai selesai
+      }).updateStatus(rowIndex, 'Selesai');
+    }
+
+    // Jalankan saat halaman dimuat
+    window.onload = loadData;
+  </script>
+</body>
+</html>
