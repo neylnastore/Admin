@@ -1,3 +1,33 @@
-<iframe 
-  src="https://script.google.com/macros/s/AKfycbyaOD1g1fPrHotlL3ykTwjkbzqfF43r573cnyxjjHzqS64Cg63Ch5U5CX3aI--x0ObJ/exec"
-</iframe>
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Full Screen Iframe</title>
+    <style>
+        /* Hilangkan margin dan scroll pada body */
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        /* Buat iframe menutupi seluruh layar */
+        iframe {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+
+    <iframe src="https://script.google.com/macros/s/AKfycbyaOD1g1fPrHotlL3ykTwjkbzqfF43r573cnyxjjHzqS64Cg63Ch5U5CX3aI--x0ObJ/exec" title="Full Screen Iframe"></iframe>
+
+</body>
+</html>
